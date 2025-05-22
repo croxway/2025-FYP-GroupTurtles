@@ -1,11 +1,11 @@
 import cv2
 import numpy as np
-from sklearn.cluster import MiniBatchKMeans
 import os
 from glob import glob
 import csv
 from joblib import Parallel, delayed
 import pandas as pd
+from sklearn.cluster import MiniBatchKMeans
 from sklearn.preprocessing import MinMaxScaler
 
 image_folder = "imgs_part_1"
@@ -13,24 +13,22 @@ mask_folder = "lesion_masks"
 output_csv_raw = os.path.join(image_folder, "color_features.csv")
 output_csv_scaled = os.path.join(image_folder, "color_features_scaled.csv")
 
-image_paths = sorted([
-    f for f in glob(os.path.join(image_folder, "*.[pP][nN][gG]"))
-    if "_mask" not in os.path.basename(f)
-])
-print(f"Found {len(image_paths)} image files.")
+image_files = sorted([f for f in glob(os.path.join(image_folder, "*.png")) if "_mask" not in f])
+mask_files = sorted([f for f in glob(os.path.join(mask_folder, "*_mask.png"))])
+mask_names = {os.path.splitext(os.path.basename(f))[0].replace("_mask", ""): f for f in mask_files}
+matched_images = [f for f in image_files if os.path.splitext(os.path.basename(f))[0] in mask_names]
 
 def process_image(image_path):
     base_name = os.path.splitext(os.path.basename(image_path))[0]
-    mask_path = os.path.join(mask_folder, f"{base_name}_mask.png")
-
-    if not os.path.exists(mask_path):
-        print(f" Mask missing for: {base_name}")
+    mask_path = mask_names.get(base_name)
+    if not mask_path:
+        print(f"Mask for {base_name} not found.")
         return None
 
     image = cv2.imread(image_path)
     mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
     if image is None or mask is None:
-        print(f" Failed to read image/mask: {base_name}")
+        print(f"Error reading image or mask for {base_name}.")
         return None
 
     _, binary_mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
@@ -40,13 +38,12 @@ def process_image(image_path):
     reshaped = masked_image.reshape((-1, 3))
     non_black_pixels = reshaped[np.any(reshaped != [0, 0, 0], axis=1)]
     if len(non_black_pixels) == 0:
-        print(f" No valid pixels in mask: {base_name}")
+        print(f"No valid pixels in mask for {base_name}.")
         return None
 
     kmeans = MiniBatchKMeans(n_clusters=5, batch_size=500, n_init=10)
     kmeans.fit(non_black_pixels)
     dominant_colors = kmeans.cluster_centers_.astype(int)
-    dominant_color_strings = ['-'.join(map(str, c)) for c in dominant_colors]
 
     var_sum = sum(
         np.linalg.norm(d1 - d2)
@@ -55,10 +52,10 @@ def process_image(image_path):
     )
     color_variation = var_sum / 10
 
-    diversity = sum(
-        all(np.linalg.norm(dominant_colors[i] - dominant_colors[j]) >= 30 for j in range(i))
-        for i in range(5)
-    )
+    diversity = 0
+    for i in range(5):
+        if all(np.linalg.norm(dominant_colors[i] - dominant_colors[j]) >= 30 for j in range(i)):
+            diversity += 1
 
     blue_dominant = np.sum((non_black_pixels[:, 2] > non_black_pixels[:, 0]) &
                            (non_black_pixels[:, 2] > non_black_pixels[:, 1])) / len(non_black_pixels)
@@ -78,7 +75,7 @@ def process_image(image_path):
     hue_mean, sat_mean, val_mean = np.mean(hsv, axis=0)
     hue_std, sat_std, val_std = np.std(hsv, axis=0)
 
-    hist, _ = np.histogramdd(non_black_pixels, bins=(8, 8, 8), range=((0, 256),) * 3)
+    hist, _ = np.histogramdd(non_black_pixels, bins=(8, 8, 8), range=((0, 256), (0, 256), (0, 256)))
     hist_norm = hist / np.sum(hist)
     entropy = -np.sum(hist_norm[hist_norm > 0] * np.log2(hist_norm[hist_norm > 0]))
 
@@ -94,44 +91,67 @@ def process_image(image_path):
     else:
         border_contrast = 0
 
-    return [base_name] + dominant_color_strings + [
-        round(color_variation, 2), diversity, round(color_asymmetry, 2),
-        round(blue_dominant, 3), round(dark_ratio, 3),
-        round(mean_r, 2), round(mean_g, 2), round(mean_b, 2),
-        round(std_r, 2), round(std_g, 2), round(std_b, 2),
-        round(hue_mean, 2), round(sat_mean, 2), round(val_mean, 2),
-        round(hue_std, 2), round(sat_std, 2), round(val_std, 2),
-        round(entropy, 3), round(highly_sat_ratio, 3),
-        round(border_contrast, 2)
-    ]
+    color_ranges = {
+        'white': ((200, 200, 200), (255, 255, 255)),
+        'red': ((0, 0, 150), (100, 100, 255)),
+        'light_brown': ((150, 100, 50), (200, 150, 100)),
+        'dark_brown': ((50, 30, 10), (100, 70, 40)),
+        'blue_green': ((0, 100, 100), (50, 180, 150)),
+        'black': ((0, 0, 0), (50, 50, 50))
+    }
+
+    detected_colors = []
+    for color, (lower, upper) in color_ranges.items():
+        lower = np.array(lower, dtype=np.uint8)
+        upper = np.array(upper, dtype=np.uint8)
+        color_mask = cv2.inRange(image_rgb, lower, upper)
+        if np.any(cv2.bitwise_and(color_mask, color_mask, mask=binary_mask)):
+            detected_colors.append(color)
+
+    color_order = ['white', 'red', 'light_brown', 'dark_brown', 'blue_green', 'black']
+    color_presence = [1 if c in detected_colors else 0 for c in color_order]
+    color_sum = sum(color_presence)
+
+    return [base_name] + \
+           [tuple(c) for c in dominant_colors] + \
+           [round(color_variation, 2), diversity, round(color_asymmetry, 2),
+            round(blue_dominant, 3), round(dark_ratio, 3),
+            round(mean_r, 2), round(mean_g, 2), round(mean_b, 2),
+            round(std_r, 2), round(std_g, 2), round(std_b, 2),
+            round(hue_mean, 2), round(sat_mean, 2), round(val_mean, 2),
+            round(hue_std, 2), round(sat_std, 2), round(val_std, 2),
+            round(entropy, 3), round(highly_sat_ratio, 3),
+            round(border_contrast, 2)] + color_presence + [color_sum]
+
+header = [
+    "Image", 
+    "Color 1", "Color 2", "Color 3", "Color 4", "Color 5",
+    "Color Variation", "Color Diversity", "Color Asymmetry",
+    "Blue Dominance", "Dark Ratio",
+    "Mean R", "Mean G", "Mean B",
+    "Std R", "Std G", "Std B",
+    "Hue Mean", "Sat Mean", "Val Mean",
+    "Hue Std", "Sat Std", "Val Std",
+    "Color Entropy", "Highly Sat Ratio", "Border Contrast",
+    "White", "Red", "Light Brown", "Dark Brown", "Blue Green", "Black", "Color Count"
+]
 
 with open(output_csv_raw, mode='w', newline='') as file:
     writer = csv.writer(file)
-    writer.writerow([
-        "Image",
-        "Color 1", "Color 2", "Color 3", "Color 4", "Color 5",
-        "Color Variation", "Color Diversity", "Color Asymmetry",
-        "Blue Dominance", "Dark Ratio",
-        "Mean R", "Mean G", "Mean B",
-        "Std R", "Std G", "Std B",
-        "Hue Mean", "Sat Mean", "Val Mean",
-        "Hue Std", "Sat Std", "Val Std",
-        "Color Entropy", "Highly Sat Ratio", "Border Contrast"
-    ])
+    writer.writerow(header)
 
-    results = Parallel(n_jobs=-1)(delayed(process_image)(img_path) for img_path in image_paths)
-    valid_results = [r for r in results if r]
-    for row in valid_results:
-        writer.writerow(row)
+    results = Parallel(n_jobs=-1)(delayed(process_image)(img_path) for img_path in matched_images)
+    for result in results:
+        if result:
+            writer.writerow(result)
 
-print(f"\n Feature CSV saved to: {output_csv_raw}")
-print(f"Total valid entries: {len(valid_results)}")
+print(f"\nFeature CSV saved to: {output_csv_raw}")
 
 df = pd.read_csv(output_csv_raw)
-numeric_cols = df.columns[6:]
-
+numeric_cols = df.columns[6:26]  
 scaler = MinMaxScaler()
 df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
 df[numeric_cols] = df[numeric_cols].round(2)
 df.to_csv(output_csv_scaled, index=False)
-print(f" Scaled feature CSV saved to: {output_csv_scaled}")
+
+print(f"Scaled and saved to: {output_csv_scaled}")
