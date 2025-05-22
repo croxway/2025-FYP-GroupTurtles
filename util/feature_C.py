@@ -67,13 +67,8 @@ def process_image(image_path):
     right = image_rgb[:, w // 2:][mask[:, w // 2:] > 0]
     color_asymmetry = np.linalg.norm(np.mean(left, axis=0) - np.mean(right, axis=0)) if left.size and right.size else 0
 
-    mean_r, mean_g, mean_b = np.mean(non_black_pixels, axis=0)
-    std_r, std_g, std_b = np.std(non_black_pixels, axis=0)
-
     hsv = cv2.cvtColor(masked_image, cv2.COLOR_RGB2HSV).reshape((-1, 3))
     hsv = hsv[np.any(masked_image.reshape((-1, 3)) != [0, 0, 0], axis=1)]
-    hue_mean, sat_mean, val_mean = np.mean(hsv, axis=0)
-    hue_std, sat_std, val_std = np.std(hsv, axis=0)
 
     hist, _ = np.histogramdd(non_black_pixels, bins=(8, 8, 8), range=((0, 256), (0, 256), (0, 256)))
     hist_norm = hist / np.sum(hist)
@@ -116,10 +111,6 @@ def process_image(image_path):
            [tuple(c) for c in dominant_colors] + \
            [round(color_variation, 2), diversity, round(color_asymmetry, 2),
             round(blue_dominant, 3), round(dark_ratio, 3),
-            round(mean_r, 2), round(mean_g, 2), round(mean_b, 2),
-            round(std_r, 2), round(std_g, 2), round(std_b, 2),
-            round(hue_mean, 2), round(sat_mean, 2), round(val_mean, 2),
-            round(hue_std, 2), round(sat_std, 2), round(val_std, 2),
             round(entropy, 3), round(highly_sat_ratio, 3),
             round(border_contrast, 2)] + color_presence + [color_sum]
 
@@ -128,10 +119,6 @@ header = [
     "Color 1", "Color 2", "Color 3", "Color 4", "Color 5",
     "Color Variation", "Color Diversity", "Color Asymmetry",
     "Blue Dominance", "Dark Ratio",
-    "Mean R", "Mean G", "Mean B",
-    "Std R", "Std G", "Std B",
-    "Hue Mean", "Sat Mean", "Val Mean",
-    "Hue Std", "Sat Std", "Val Std",
     "Color Entropy", "Highly Sat Ratio", "Border Contrast",
     "White", "Red", "Light Brown", "Dark Brown", "Blue Green", "Black", "Color Count"
 ]
@@ -148,7 +135,7 @@ with open(output_csv_raw, mode='w', newline='') as file:
 print(f"\nFeature CSV saved to: {output_csv_raw}")
 
 df = pd.read_csv(output_csv_raw)
-numeric_cols = df.columns[6:26]  
+numeric_cols = df.columns[6:13]  
 scaler = MinMaxScaler()
 df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
 df[numeric_cols] = df[numeric_cols].round(2)
