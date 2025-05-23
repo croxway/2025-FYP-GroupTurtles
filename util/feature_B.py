@@ -31,7 +31,13 @@ def process_directory(directory_path):
         score = process_mask(full_path)
         print(f"{filename:<30} | Circularity: {score:.3f}")
     
-    print("\n✅ Done processing all images.\n")
+    
+    with open(output_csv, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Filename", "Average_Circularity"])
+        writer.writerows(results)
+
+    print(f"\nSaved results to {output_csv}")
 
 if __name__ == "__main__":
     directory = ""  #  Replace with your local path
