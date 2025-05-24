@@ -4,7 +4,7 @@ from skimage.color import rgba2rgb
 from skimage.measure import perimeter
 from scipy.ndimage import rotate
 from math import floor, ceil
-
+from util import feature_A, feature_B, feature_C 
 ###############
 ###ASYMMETRY###
 ###############
