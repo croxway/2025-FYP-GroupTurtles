@@ -5,7 +5,6 @@ from glob import glob
 import csv
 from joblib import Parallel, delayed
 import pandas as pd
-from sklearn.cluster import MiniBatchKMeans
 from sklearn.preprocessing import MinMaxScaler
 
 image_folder = "imgs_part_1"
@@ -41,28 +40,13 @@ def process_image(image_path):
         print(f"No valid pixels in mask for {base_name}.")
         return None
 
-    # Mean, median, and std over all RGB values
     flattened_pixels = non_black_pixels.flatten()
     mean_color = np.mean(flattened_pixels)
     median_color = np.median(flattened_pixels)
     std_color = np.std(flattened_pixels)
 
-    # KMeans clustering
-    kmeans = MiniBatchKMeans(n_clusters=5, batch_size=500, n_init=10)
-    kmeans.fit(non_black_pixels)
-    dominant_colors = kmeans.cluster_centers_.astype(int)
-
-    var_sum = sum(
-        np.linalg.norm(d1 - d2)
-        for i, d1 in enumerate(dominant_colors)
-        for d2 in dominant_colors[i + 1:]
-    )
-    color_variation = var_sum / 10
-
+    color_variation = 0
     diversity = 0
-    for i in range(5):
-        if all(np.linalg.norm(dominant_colors[i] - dominant_colors[j]) >= 30 for j in range(i)):
-            diversity += 1
 
     blue_dominant = np.sum((non_black_pixels[:, 2] > non_black_pixels[:, 0]) &
                            (non_black_pixels[:, 2] > non_black_pixels[:, 1])) / len(non_black_pixels)
@@ -116,24 +100,20 @@ def process_image(image_path):
 
     return [base_name] + \
            [round(mean_color, 2), round(median_color, 2), round(std_color, 2)] + \
-           [tuple(c) for c in dominant_colors] + \
            [round(color_variation, 2), diversity, round(color_asymmetry, 2),
             round(blue_dominant, 3), round(dark_ratio, 3),
             round(entropy, 3), round(highly_sat_ratio, 3),
             round(border_contrast, 2)] + color_presence + [color_sum]
 
-# Header for the CSV
 header = [
     "Image",
     "Mean Color", "Median Color", "Std Color",
-    "Color 1", "Color 2", "Color 3", "Color 4", "Color 5",
     "Color Variation", "Color Diversity", "Color Asymmetry",
     "Blue Dominance", "Dark Ratio",
     "Color Entropy", "Highly Sat Ratio", "Border Contrast",
     "White", "Red", "Light Brown", "Dark Brown", "Blue Green", "Black", "Color Count"
 ]
 
-# Write raw features to CSV
 with open(output_csv_raw, mode='w', newline='') as file:
     writer = csv.writer(file)
     writer.writerow(header)
@@ -144,12 +124,13 @@ with open(output_csv_raw, mode='w', newline='') as file:
 
 print(f"\nFeature CSV saved to: {output_csv_raw}")
 
-# Normalize selected features and save
+
 df = pd.read_csv(output_csv_raw)
-numeric_cols = df.columns[9:16]  # Only normalize numeric metrics (skip image name, mean/median/std, and tuples)
+numeric_cols = df.columns[4:11]  
 scaler = MinMaxScaler()
 df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
 df[numeric_cols] = df[numeric_cols].round(2)
 df.to_csv(output_csv_scaled, index=False)
 
 print(f"Scaled and saved to: {output_csv_scaled}")
+
