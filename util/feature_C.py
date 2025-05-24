@@ -41,6 +41,13 @@ def process_image(image_path):
         print(f"No valid pixels in mask for {base_name}.")
         return None
 
+    # Mean, median, and std over all RGB values
+    flattened_pixels = non_black_pixels.flatten()
+    mean_color = np.mean(flattened_pixels)
+    median_color = np.median(flattened_pixels)
+    std_color = np.std(flattened_pixels)
+
+    # KMeans clustering
     kmeans = MiniBatchKMeans(n_clusters=5, batch_size=500, n_init=10)
     kmeans.fit(non_black_pixels)
     dominant_colors = kmeans.cluster_centers_.astype(int)
@@ -108,14 +115,17 @@ def process_image(image_path):
     color_sum = sum(color_presence)
 
     return [base_name] + \
+           [round(mean_color, 2), round(median_color, 2), round(std_color, 2)] + \
            [tuple(c) for c in dominant_colors] + \
            [round(color_variation, 2), diversity, round(color_asymmetry, 2),
             round(blue_dominant, 3), round(dark_ratio, 3),
             round(entropy, 3), round(highly_sat_ratio, 3),
             round(border_contrast, 2)] + color_presence + [color_sum]
 
+# Header for the CSV
 header = [
-    "Image", 
+    "Image",
+    "Mean Color", "Median Color", "Std Color",
     "Color 1", "Color 2", "Color 3", "Color 4", "Color 5",
     "Color Variation", "Color Diversity", "Color Asymmetry",
     "Blue Dominance", "Dark Ratio",
@@ -123,10 +133,10 @@ header = [
     "White", "Red", "Light Brown", "Dark Brown", "Blue Green", "Black", "Color Count"
 ]
 
+# Write raw features to CSV
 with open(output_csv_raw, mode='w', newline='') as file:
     writer = csv.writer(file)
     writer.writerow(header)
-
     results = Parallel(n_jobs=-1)(delayed(process_image)(img_path) for img_path in matched_images)
     for result in results:
         if result:
@@ -134,8 +144,9 @@ with open(output_csv_raw, mode='w', newline='') as file:
 
 print(f"\nFeature CSV saved to: {output_csv_raw}")
 
+# Normalize selected features and save
 df = pd.read_csv(output_csv_raw)
-numeric_cols = df.columns[6:13]  
+numeric_cols = df.columns[9:16]  # Only normalize numeric metrics (skip image name, mean/median/std, and tuples)
 scaler = MinMaxScaler()
 df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
 df[numeric_cols] = df[numeric_cols].round(2)
