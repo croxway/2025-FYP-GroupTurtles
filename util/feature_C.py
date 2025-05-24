@@ -6,12 +6,10 @@ import csv
 from joblib import Parallel, delayed
 import pandas as pd
 from sklearn.cluster import MiniBatchKMeans
-from sklearn.preprocessing import MinMaxScaler
 
-image_folder = "imgs_part_1"
-mask_folder = "lesion_masks"
-output_csv_raw = os.path.join(image_folder, "color_features.csv")
-output_csv_scaled = os.path.join(image_folder, "color_features_scaled.csv")
+image_folder = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/imgs_part_1"
+mask_folder = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/lesion_masks"
+output_csv_raw = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/color_features.csv"
 
 image_files = sorted([f for f in glob(os.path.join(image_folder, "*.png")) if "_mask" not in f])
 mask_files = sorted([f for f in glob(os.path.join(mask_folder, "*_mask.png"))])
@@ -41,13 +39,11 @@ def process_image(image_path):
         print(f"No valid pixels in mask for {base_name}.")
         return None
 
-    # Mean, median, and std over all RGB values
     flattened_pixels = non_black_pixels.flatten()
     mean_color = np.mean(flattened_pixels)
     median_color = np.median(flattened_pixels)
     std_color = np.std(flattened_pixels)
 
-    # KMeans clustering
     kmeans = MiniBatchKMeans(n_clusters=5, batch_size=500, n_init=10)
     kmeans.fit(non_black_pixels)
     dominant_colors = kmeans.cluster_centers_.astype(int)
@@ -122,7 +118,6 @@ def process_image(image_path):
             round(entropy, 3), round(highly_sat_ratio, 3),
             round(border_contrast, 2)] + color_presence + [color_sum]
 
-# Header for the CSV
 header = [
     "Image",
     "Mean Color", "Median Color", "Std Color",
@@ -133,7 +128,6 @@ header = [
     "White", "Red", "Light Brown", "Dark Brown", "Blue Green", "Black", "Color Count"
 ]
 
-# Write raw features to CSV
 with open(output_csv_raw, mode='w', newline='') as file:
     writer = csv.writer(file)
     writer.writerow(header)
@@ -143,13 +137,3 @@ with open(output_csv_raw, mode='w', newline='') as file:
             writer.writerow(result)
 
 print(f"\nFeature CSV saved to: {output_csv_raw}")
-
-# Normalize selected features and save
-df = pd.read_csv(output_csv_raw)
-numeric_cols = df.columns[9:16]  # Only normalize numeric metrics (skip image name, mean/median/std, and tuples)
-scaler = MinMaxScaler()
-df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
-df[numeric_cols] = df[numeric_cols].round(2)
-df.to_csv(output_csv_scaled, index=False)
-
-print(f"Scaled and saved to: {output_csv_scaled}")

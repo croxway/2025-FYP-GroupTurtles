@@ -7,7 +7,7 @@ from scipy.ndimage import rotate
 from math import floor, ceil
 from concurrent.futures import ThreadPoolExecutor
 
-# --- Asymmetry Functions (same as yours) ---
+# --- Your actual asymmetry functions below ---
 
 def cutmask(mask):
     col_sums = np.sum(mask, axis=0)
@@ -65,12 +65,12 @@ def pad_mask(mask):
     pad_x = (diag - mask.shape[1]) // 2
     return np.pad(mask, ((pad_y, pad_y), (pad_x, pad_x)), mode='constant', constant_values=0)
 
-def rotation_asymmetry(mask, n=8):  # reduced rotations from 30 to 8
+def rotation_asymmetry(mask, n=8):
     scores = []
     padded = pad_mask(mask)
     angles = np.linspace(0, 360, n, endpoint=False)
     for deg in angles:
-        rotated = rotate(padded, deg, reshape=False, order=0)  # order=0 for faster nearest-neighbor
+        rotated = rotate(padded, deg, reshape=False, order=0)
         scores.append(asymmetry(rotated))
     return scores
 
@@ -79,35 +79,39 @@ def get_asymm_results(mask):
     scores = rotation_asymmetry(mask)
     return min(scores), round(np.mean(scores), 4)
 
-# --- Worker function for parallel processing ---
+# --- Processing each mask file ---
 
-def process_mask(name):
+def process_mask(file_name):
     try:
-        path = os.path.join(masks_dir, name)
+        # Crop filename to base without _mask.png if present
+        if file_name.endswith('_mask.png'):
+            base_name = file_name[:-9]  # remove '_mask.png'
+        else:
+            base_name = file_name
+        path = os.path.join(masks_dir, file_name)
+        print(f"Processing: {path}")
         mask = imread(path)
         if mask.ndim == 3:
             mask = rgb2gray(mask)
         binary = mask > 0.5
         best, mean = get_asymm_results(binary)
-        return {"mask_name": name, "best_asymmetry_score": best, "mean_asymmetry_score": mean}
+        return {"mask_name": base_name, "best_asymmetry_score": best, "mean_asymmetry_score": mean}
     except Exception as e:
-        return {"mask_name": name, "best_asymmetry_score": None, "mean_asymmetry_score": None, "error": str(e)}
+        print(f"Error processing {file_name}: {e}")
+        return {"mask_name": file_name, "best_asymmetry_score": None, "mean_asymmetry_score": None, "error": str(e)}
 
 # --- Main ---
-excel_path = r"C:/Users/ASUS/OneDrive/Pulpit/paires.xlsx"
-output_excel = r"C:/Users/ASUS/OneDrive/Pulpit/assym_results.xlsx"
-masks_dir = r"C:/Users/ASUS/OneDrive/Pulpit/Projects/padchest_lesion_masks/lesion_masks"
 
-df = pd.read_excel(excel_path)
-mask_names = df["mask_name"].tolist() if "mask_name" in df.columns else [os.path.basename(p) for p in df["mask_path"]]
+masks_dir = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/lesion_masks"
+output_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/Asymetry.csv"
 
-# Use ThreadPoolExecutor or ProcessPoolExecutor, here ThreadPoolExecutor is simpler and works for I/O and some CPU
-from concurrent.futures import ThreadPoolExecutor
+# List all mask files in the directory (only PNGs)
+all_files = [f for f in os.listdir(masks_dir) if f.endswith('.png')]
 
 with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as executor:
-    results = list(executor.map(process_mask, mask_names))
+    results = list(executor.map(process_mask, all_files))
 
 results_df = pd.DataFrame(results)
-results_df.to_excel(output_excel, index=False)
+results_df.to_csv(output_csv, index=False)
 
-print(f"✅ Done. Results saved to {output_excel}")
+print(f"✅ Done. Results saved to {output_csv}")
