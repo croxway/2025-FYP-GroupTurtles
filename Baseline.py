@@ -61,6 +61,6 @@ if __name__ == "__main__":
 
     merged = merge_csv_files([csv_a_csv, csv_b_csv, csv_c_csv])
 
-    output_file = os.path.join(repo_dir, "merged_features.csv")
+    output_file = os.path.join(repo_dir, "baseline_features.csv")
     merged.to_csv(output_file, index=False)
     print(f"\n✅ Merged CSV saved at {output_file}")
