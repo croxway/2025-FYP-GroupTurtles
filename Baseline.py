@@ -9,9 +9,10 @@ feature_a_script = "feature_a.py"
 feature_b_script = "feature_b.py"
 feature_c_script = "feature_c.py"
 
-csv_a_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/Asymetry.csv"
-csv_b_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/circularity.csv"
-csv_c_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/color_features.csv"
+#path to csv´s A,B,C
+csv_a_csv = ""
+csv_b_csv = ""
+csv_c_csv = ""
 
 def run_feature(script_name):
     print(f"Running {script_name} ...")
