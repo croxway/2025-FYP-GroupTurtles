@@ -38,9 +38,9 @@ def save_pairs_to_excel(pairs, output_excel):
     print(f"✅ Saved {len(df)} unique pairs to Excel: {output_excel}")
 
 if __name__ == "__main__":
-    image_dir = r"C:/Users/ASUS/OneDrive/Pulpit/imgs_part_1"
-    mask_dir = r"C:/Users/ASUS/OneDrive/Pulpit/Projects/padchest_lesion_masks/lesion_masks"
-    output_excel = r"C:/Users/ASUS/OneDrive/Pulpit/paires.xlsx"
+    image_dir = ""
+    mask_dir = ""
+    output_excel = ""
 
     pairs = find_unique_pairs(image_dir, mask_dir)
     print(f"✅ Found {len(pairs)} unique image-mask pairs (one mask per image).")
