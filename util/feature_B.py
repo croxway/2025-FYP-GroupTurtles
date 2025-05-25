@@ -47,6 +47,6 @@ def process_directory(directory_path, output_csv):
     print(f"\n✅ Saved results to {output_csv}")
 
 if __name__ == "__main__":
-    directory = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/lesion_masks"
-    output_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/circularity.csv"
+    directory = ""
+    output_csv = ""
     process_directory(directory, output_csv)
