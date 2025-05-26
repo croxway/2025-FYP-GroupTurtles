@@ -1,101 +1,144 @@
 import os
+import csv
 import numpy as np
-import pandas as pd
+import matplotlib.pyplot as plt
 from skimage.io import imread
-from skimage.color import rgb2gray
+from skimage.color import rgb2gray, rgb2lab, rgb2hsv
 from skimage.feature import graycomatrix, graycoprops
-from mahotas import features
 from skimage.util import img_as_ubyte
+from skimage import img_as_float
+from skimage.morphology import binary_closing, remove_small_objects, disk
 
-# === FILE PATHS ===
-csv_path = " "
-image_dir = " "
-mask_dir = " "
 
-# === LOAD CSV ===
-df = pd.read_csv(csv_path, delimiter=';')
-print(f"🔹 Loaded {len(df)} rows from baseline CSV")
+# === HARALICK HELPERS ===
+def compute_entropy(glcm):
+    glcm = np.where(glcm > 0, glcm, 1e-10)
+    return -np.sum(glcm * np.log2(glcm))
 
-# === HARALICK FEATURE NAMES ===
-haralick_names = [
-    'ASM', 'Contrast', 'Correlation', 'Variance', 'IDM', 'SumAverage',
-    'SumVariance', 'SumEntropy', 'Entropy', 'DifferenceVariance',
-    'DifferenceEntropy', 'IMC1', 'IMC2'
-]
+def compute_dissimilarity(glcm):
+    levels = glcm.shape[0]
+    i, j = np.indices((levels, levels))
+    return np.sum(glcm * np.abs(i - j))
 
-# === FEATURE EXTRACTION FUNCTION ===
-def extract_texture_features(image_path, mask_path):
-    try:
-        img = imread(image_path)
-        mask = imread(mask_path, as_gray=True)
+def compute_asm(glcm):
+    return np.sum(glcm ** 2)
 
-        # Drop alpha if RGBA
-        if img.shape[2] == 4:
-            img = img[:, :, :3]
 
-        # Convert to grayscale
-        gray = rgb2gray(img)
-        gray = img_as_ubyte(gray)
+# === TEXTURE FEATURE EXTRACTION ===
+def extract_texture_features(image, mask):
+    gray = rgb2gray(image)
+    gray = img_as_ubyte(gray)
+    coords = np.argwhere(mask)
+    if coords.size == 0:
+        return None
+    y0, x0 = coords.min(axis=0)
+    y1, x1 = coords.max(axis=0)
+    patch = gray[y0:y1+1, x0:x1+1]
+    patch_mask = mask[y0:y1+1, x0:x1+1]
+    patch = patch * patch_mask
+    if np.sum(patch_mask) < 25:
+        return None
+    glcm = graycomatrix(patch, distances=[1],
+                        angles=[0, np.pi/4, np.pi/2, 3*np.pi/4],
+                        levels=256, symmetric=True, normed=True)
+    features = {}
+    for p in ['contrast', 'correlation', 'energy', 'homogeneity']:
+        features[f"Haralick_{p.capitalize()}"] = np.mean(graycoprops(glcm, p))
+    entropy_vals, diss_vals, asm_vals = [], [], []
+    for angle in range(glcm.shape[-1]):
+        glcm_slice = glcm[:, :, 0, angle]
+        entropy_vals.append(compute_entropy(glcm_slice))
+        diss_vals.append(compute_dissimilarity(glcm_slice))
+        asm_vals.append(compute_asm(glcm_slice))
+    features["Haralick_Entropy"] = np.mean(entropy_vals)
+    features["Haralick_Dissimilarity"] = np.mean(diss_vals)
+    features["Haralick_ASM"] = np.mean(asm_vals)
+    return features
 
-        if np.sum(mask) == 0:
-            return None
 
-        # Crop bounding box of mask
-        coords = np.argwhere(mask > 0)
-        y0, x0 = coords.min(axis=0)
-        y1, x1 = coords.max(axis=0) + 1
-        roi = gray[y0:y1, x0:x1]
-        roi = np.clip(roi, 0, 255).astype(np.uint8)
-
-        # Skip very small lesions
-        if roi.shape[0] < 5 or roi.shape[1] < 5:
-            return None
-
-        # GLCM using full 2D ROI
-        glcm = graycomatrix(roi, [1], [0], 256, symmetric=True, normed=True)
-        contrast = graycoprops(glcm, 'contrast')[0, 0]
-        correlation = graycoprops(glcm, 'correlation')[0, 0]
-        energy = graycoprops(glcm, 'energy')[0, 0]
-        homogeneity = graycoprops(glcm, 'homogeneity')[0, 0]
-
-        # Haralick features
-        haralick_feats = features.haralick(roi)
-        haralick_mean = np.nan_to_num(np.mean(haralick_feats, axis=0), nan=0.0)
-
-        haralick_dict = {f'Haralick_{name}': val for name, val in zip(haralick_names, haralick_mean)}
-
-        return {
-            'GLCM_Contrast': contrast,
-            'GLCM_Correlation': correlation,
-            'GLCM_Energy': energy,
-            'GLCM_Homogeneity': homogeneity,
-            **haralick_dict
+# === BWV DETECTOR ===
+class BlueWhiteVeilDetector:
+    def __init__(self):
+        self.lab_thresholds = {
+            'L_min': 20, 'L_max': 90,
+            'a_min': -25, 'a_max': 10,
+            'b_min': -45, 'b_max': -5
         }
 
-    except Exception as e:
-        print(f"❌ Error processing {os.path.basename(image_path)}: {e}")
-        return None
+    def detect(self, image, mask):
+        image = img_as_float(image)
+        lab = rgb2lab(image)
+        hsv = rgb2hsv(image)
+        r, g, b = image[..., 0], image[..., 1], image[..., 2]
+        L, a, b_lab = lab[..., 0], lab[..., 1], lab[..., 2]
+        h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
 
-# === LOOP THROUGH ALL ROWS ===
-features_list = []
+        lab_bwv = ((L >= 20) & (L <= 90) &
+                   (a >= -25) & (a <= 10) &
+                   (b_lab >= -45) & (b_lab <= -5) & mask)
 
-for i, row in df.iterrows():
-    key = row['key']
-    image_path = os.path.join(image_dir, f"{key}.png")
-    mask_path = os.path.join(mask_dir, f"{key}_mask.png")
+        hue_blue = ((h >= 0.5) & (h <= 0.8)) | ((h >= 0.45) & (h <= 0.55))
+        hsv_bwv = hue_blue & (s >= 0.1) & (s <= 0.9) & (v >= 0.15) & (v <= 0.95) & mask
 
-    if os.path.exists(image_path) and os.path.exists(mask_path):
-        features_dict = extract_texture_features(image_path, mask_path)
-        if features_dict:
-            features_dict['key'] = key
-            features_list.append(features_dict)
-    else:
-        print(f"⚠️ Missing files for {key}")
+        blue_dominant = (b > r) & (b > g)
+        blue_gray = (b > r + 0.05) & (b > g + 0.05) & (np.abs(r - g) < 0.15)
+        total = r + g + b
+        blue_ratio = np.divide(b, total, out=np.zeros_like(b), where=total > 0.1)
+        whitish_blue = (blue_ratio > 0.35) & (total > 0.4)
+        rgb_bwv = mask & ((blue_dominant) | blue_gray | whitish_blue)
 
-# === MERGE AND SAVE ===
-df_features = pd.DataFrame(features_list)
-df_combined = pd.merge(df, df_features, on='key', how='left')
+        votes = lab_bwv.astype(int) + hsv_bwv.astype(int) + rgb_bwv.astype(int)
+        bwv_mask = (votes >= 1)
+        bwv_mask = remove_small_objects(bwv_mask, min_size=15)
+        bwv_mask = binary_closing(bwv_mask, disk(2))
 
-# Round to 2 decimal places for Excel
-float_cols = df_combined.select_dtypes(include='float').columns
-df_combined[float_cols] = df_combined[float_cols].round(2)
+        lesion_area = np.sum(mask)
+        bwv_area = np.sum(bwv_mask)
+        return {
+            'lesion_area': lesion_area,
+            'bwv_area': bwv_area,
+            'bwv_pct_lesion': (bwv_area / lesion_area * 100) if lesion_area > 0 else 0
+        }
+
+
+# === BATCH PROCESSING & CSV EXPORT ===
+def process_image_folder(folder_path, output_csv):
+    detector = BlueWhiteVeilDetector()
+    image_files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    if not image_files:
+        print("⚠️ No images found in the folder.")
+        return
+
+    all_results = []
+    for fname in image_files:
+        image_path = os.path.join(folder_path, fname)
+        try:
+            image = imread(image_path)
+            if image.shape[-1] == 4:
+                image = image[..., :3]
+            gray = rgb2gray(image)
+            mask = gray > 0.05
+
+            features = extract_texture_features(image, mask) or {}
+            stats = detector.detect(image, mask)
+
+            row = {'Filename': fname, **features, **stats}
+            all_results.append(row)
+            print(f"✅ Processed {fname}")
+        except Exception as e:
+            print(f"❌ Failed to process {fname}: {e}")
+
+    if all_results:
+        keys = sorted(set().union(*all_results))
+        with open(output_csv, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            writer.writerows(all_results)
+        print(f"\n📁 Results saved to: {output_csv}")
+
+
+# === RUN SCRIPT ===
+if __name__ == "__main__":
+    folder = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Lesion_only + hair removed"  # 🔁 UPDATE
+    output_csv = "lesion_texture_analysis.csv"
+    process_image_folder(folder, output_csv)
