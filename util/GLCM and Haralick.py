@@ -1,4 +1,5 @@
 import os
+import re
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,7 +9,6 @@ from skimage.feature import graycomatrix, graycoprops
 from skimage.util import img_as_ubyte
 from skimage import img_as_float
 from skimage.morphology import binary_closing, remove_small_objects, disk
-
 
 # === HARALICK HELPERS ===
 def compute_entropy(glcm):
@@ -22,7 +22,6 @@ def compute_dissimilarity(glcm):
 
 def compute_asm(glcm):
     return np.sum(glcm ** 2)
-
 
 # === TEXTURE FEATURE EXTRACTION ===
 def extract_texture_features(image, mask):
@@ -54,7 +53,6 @@ def extract_texture_features(image, mask):
     features["Haralick_Dissimilarity"] = np.mean(diss_vals)
     features["Haralick_ASM"] = np.mean(asm_vals)
     return features
-
 
 # === BWV DETECTOR ===
 class BlueWhiteVeilDetector:
@@ -100,8 +98,11 @@ class BlueWhiteVeilDetector:
             'bwv_pct_lesion': (bwv_area / lesion_area * 100) if lesion_area > 0 else 0
         }
 
-
 # === BATCH PROCESSING & CSV EXPORT ===
+def clean_name_for_key(filename):
+    base = os.path.splitext(filename)[0]
+    return re.sub(r'(_lesions?|_mask)$', '', base, flags=re.IGNORECASE)
+
 def process_image_folder(folder_path, output_csv):
     detector = BlueWhiteVeilDetector()
     image_files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
@@ -122,23 +123,29 @@ def process_image_folder(folder_path, output_csv):
             features = extract_texture_features(image, mask) or {}
             stats = detector.detect(image, mask)
 
-            row = {'Filename': fname, **features, **stats}
+            base_name = clean_name_for_key(fname)
+            row = {'key': base_name, **features, **stats}
             all_results.append(row)
             print(f"✅ Processed {fname}")
         except Exception as e:
             print(f"❌ Failed to process {fname}: {e}")
 
     if all_results:
-        keys = sorted(set().union(*all_results))
-        with open(output_csv, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=keys)
-            writer.writeheader()
-            writer.writerows(all_results)
-        print(f"\n📁 Results saved to: {output_csv}")
+        # Define consistent column order
+        fieldnames = ['key',
+                      'Haralick_Contrast', 'Haralick_Correlation', 'Haralick_Energy', 'Haralick_Homogeneity',
+                      'Haralick_Entropy', 'Haralick_Dissimilarity', 'Haralick_ASM',
+                      'lesion_area', 'bwv_area', 'bwv_pct_lesion']
 
+        with open(output_csv, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in all_results:
+                writer.writerow({key: row.get(key, None) for key in fieldnames})
+        print(f"\n📁 Results saved to: {output_csv}")
 
 # === RUN SCRIPT ===
 if __name__ == "__main__":
-    folder = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Lesion_only + hair removed"  # 🔁 UPDATE
-    output_csv = "lesion_texture_analysis.csv"
+    folder = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Lesion_only + hair removed"
+    output_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/Haralick_analysis.csv"
     process_image_folder(folder, output_csv)

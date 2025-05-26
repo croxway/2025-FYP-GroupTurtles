@@ -1,5 +1,6 @@
 import os
 import csv
+import re
 from skimage import io, measure
 import numpy as np
 
@@ -35,7 +36,11 @@ def process_directory(directory_path, output_csv):
     for filename in files:
         full_path = os.path.join(directory_path, filename)
         score = process_mask(full_path)
-        results.append([filename, round(score, 4)])
+        
+        # Remove '_mask.ext' from filename
+        base_name = re.sub(r'_mask\.(png|jpg|jpeg|tif|tiff)$', '', filename, flags=re.IGNORECASE)
+        
+        results.append([base_name, round(score, 4)])
         print(f"{filename:<30} | Circularity: {score:.4f}")
 
     # Write to CSV
