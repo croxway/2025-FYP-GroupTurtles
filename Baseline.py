@@ -1,21 +1,23 @@
+import pandas as pd
 import subprocess
 import os
-import pandas as pd
 
+# === File paths ===
 repo_dir = os.path.dirname(os.path.abspath(__file__))
 util_dir = os.path.join(repo_dir, "util")
 
+# Feature scripts
 feature_a_script = "feature_a.py"
 feature_b_script = "feature_b.py"
 feature_c_script = "feature_c.py"
 
-#path to csv´s A,B,C
-csv_a_csv = ""
-csv_b_csv = ""
-csv_c_csv = ""
+# ABC CSVs
+csv_a_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/Asymmetry.csv"
+csv_b_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/Border.csv"
+csv_c_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/Color.csv"
 
+# === 1. Run feature scripts ===
 def run_feature(script_name):
-    print(f"Running {script_name} ...")
     result = subprocess.run(
         ["python", script_name],
         cwd=util_dir,
@@ -23,45 +25,84 @@ def run_feature(script_name):
         text=True,
     )
     if result.returncode != 0:
-        print(f"Error running {script_name}:\n{result.stderr}")
+        print(f"❌ Error running {script_name}:\n{result.stderr}")
     else:
-        print(f"{script_name} completed successfully.")
+        print(f"✅ {script_name} completed.")
 
+# === 2. Clean mask file names ===
 def clean_mask_name(name):
     base = os.path.splitext(name)[0]
     if base.endswith("_mask"):
         base = base[:-5]
     return base
 
+# === 3. Merge CSVs on 'key' ===
 def merge_csv_files(csv_files):
     dfs = []
     for file in csv_files:
-        print(f"Loading {file} ...")
         df = pd.read_csv(file)
-
-        # Rename first column to 'key' for consistent merge
         first_col = df.columns[0]
         df = df.rename(columns={first_col: 'key'})
-
-        # Clean the key column
         df['key'] = df['key'].apply(clean_mask_name)
-
         dfs.append(df)
-
-    print("Merging CSV files on 'key' with inner join (only rows present in all files)...")
+    
     merged_df = dfs[0]
     for df in dfs[1:]:
         merged_df = merged_df.merge(df, on='key', how='inner')
-
+    
     return merged_df
 
+# === 4. Merge ABC features with metadata to create classification dataset ===
+def create_classification_dataset():
+    baseline_features_path = os.path.join(repo_dir, "baseline_features.csv")
+    metadata_path = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /2025-FYP-Turtles/metadata.csv"
+    
+    # Load data
+    baseline_df = pd.read_csv(baseline_features_path)
+    metadata_df = pd.read_csv(metadata_path)
+    
+    # Clean img_id to match baseline_df 'key'
+    metadata_df['img_id'] = metadata_df['img_id'].str.replace(".png", "", regex=False)
+
+    # Map diagnosis to binary labels
+    diagnosis_map = {
+        'MEL': 1, 'BCC': 1, 'SCC': 1,
+        'NEV': 0, 'SEB': 0, 'ACK': 0
+    }
+    metadata_df['label'] = metadata_df['diagnostic'].map(diagnosis_map)
+
+    # Merge on key
+    merged_df = pd.merge(
+        baseline_df,
+        metadata_df[['img_id', 'label']],
+        left_on='key',
+        right_on='img_id',
+        how='inner'
+    )
+    merged_df.drop(columns=['img_id'], inplace=True)
+
+    # Save result
+    output_path = os.path.join(repo_dir, "Baseline_classification.csv")
+    merged_df.to_csv(output_path, index=False)
+    print(f"✅ Classification dataset saved at {output_path}")
+    return merged_df
+
+# === 5. Main execution ===
 if __name__ == "__main__":
+    print("=" * 50)
+    print("STEP 1: GENERATING ABC FEATURES")
+    print("=" * 50)
+
     run_feature(feature_a_script)
     run_feature(feature_b_script)
     run_feature(feature_c_script)
 
+    print("\nSTEP 2: MERGING CSV FILES")
     merged = merge_csv_files([csv_a_csv, csv_b_csv, csv_c_csv])
 
     output_file = os.path.join(repo_dir, "baseline_features.csv")
     merged.to_csv(output_file, index=False)
-    print(f"\n✅ Merged CSV saved at {output_file}")
+    print(f"✅ Baseline features CSV saved at {output_file}")
+
+    print("\nSTEP 3: CREATING CLASSIFICATION DATASET")
+    create_classification_dataset()

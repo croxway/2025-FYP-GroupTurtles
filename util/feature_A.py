@@ -102,8 +102,8 @@ def process_mask(file_name):
 
 # --- Main ---
 
-masks_dir = "" #<- insert path to mask
-output_csv = "" #<- insert path to save csv
+masks_dir = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/lesion_masks" #<- insert path to mask
+output_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/Asymmetry.csv" #<- insert path to save csv
 
 # List all mask files in the directory (only PNGs)
 all_files = [f for f in os.listdir(masks_dir) if f.endswith('.png')]
