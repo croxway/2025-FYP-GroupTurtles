@@ -12,9 +12,9 @@ feature_b_script = "feature_b.py"
 feature_c_script = "feature_c.py"
 
 # ABC CSVs
-csv_a_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/Features_csv/Asymmetry.csv" #ouput path to Asymmetry csv
-csv_b_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/Features_csv/Border.csv" # output path to Border csv
-csv_c_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/Features_csv/Color.csv" # output path to Color Csv
+csv_a_csv = " " #ouput path to Asymmetry csv
+csv_b_csv = " " # output path to Border csv
+csv_c_csv = " " # output path to Color Csv
 
 # === 1. Run feature scripts ===
 def run_feature(script_name):
@@ -55,7 +55,7 @@ def merge_csv_files(csv_files):
 # === 4. Merge ABC features with metadata to create classification dataset ===
 def create_classification_dataset():
     baseline_features_path = os.path.join(repo_dir, "baseline_features.csv")
-    metadata_path = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /2025-FYP-Turtles/metadata.csv"
+    metadata_path = " "
     
     # Load data
     baseline_df = pd.read_csv(baseline_features_path)
