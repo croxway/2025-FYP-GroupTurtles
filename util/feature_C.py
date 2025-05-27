@@ -9,9 +9,9 @@ from sklearn.cluster import MiniBatchKMeans
 import time
 
 # insert paths. 
-image_folder = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/imgs_part_1"
-mask_folder = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/lesion_masks"
-output_csv_raw = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/Features_csv/Color.csv"
+image_folder = " "
+mask_folder = " "
+output_csv_raw = " "
 
 print("Starting color feature extraction...")
 print(f"Image folder: {image_folder}")
