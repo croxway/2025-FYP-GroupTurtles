@@ -27,7 +27,7 @@ output_classification_csv = os.path.join(repo_dir, "Baseline_classification_exte
 metadata_path = ""
 
 # === Lesion folder for color extraction ===
-lesion_image_folder = " " #path to lesion only with removed hair 
+lesion_image_folder = " " # path to removed hair + lesion only 
 lesion_images = sorted(glob(os.path.join(lesion_image_folder, "*.png")))
 
 # === Color feature extraction ===
