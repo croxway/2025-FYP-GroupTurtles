@@ -73,7 +73,7 @@ def extract_cropped_lesions(image_folder, mask_folder, output_folder):
 
 # Example usage:
 extract_cropped_lesions(
-    image_folder="/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/imgs_part_1",
-    mask_folder="/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/lesion_masks",
-    output_folder="/Users/onealokutu/Documents/ITU/Projects in Data Science/Lesion+hair removed"
+    image_folder= "",
+    mask_folder=" ",
+    output_folder=" "
 )
