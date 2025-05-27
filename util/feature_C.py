@@ -7,9 +7,9 @@ from joblib import Parallel, delayed
 import pandas as pd
 from sklearn.cluster import MiniBatchKMeans
 # insert paths. 
-image_folder = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/imgs_part_1"
-mask_folder = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/lesion_masks"
-output_csv_raw = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/Color.csv"
+image_folder = " "
+mask_folder = " "
+output_csv_raw = " " # output path 
 
 image_files = sorted([f for f in glob(os.path.join(image_folder, "*.png")) if "_mask" not in f])
 mask_files = sorted([f for f in glob(os.path.join(mask_folder, "*_mask.png"))])
