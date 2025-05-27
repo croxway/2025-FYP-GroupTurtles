@@ -66,8 +66,7 @@ def process_dataset(images_dir, masks_dir, output_csv):
         print("⚠️ No valid images were processed.")
 
 # 🔧 Set your actual paths here
-images_dir = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/imgs_part_1"
-masks_dir = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /Dataset /images/lesion_masks"
-output_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/Features_csv/hair_count.csv"
-
+images_dir = ""
+masks_dir = ""
+output_csv = "" 
 process_dataset(images_dir, masks_dir, output_csv)
