@@ -146,6 +146,6 @@ def process_image_folder(folder_path, output_csv):
 
 # === RUN SCRIPT ===
 if __name__ == "__main__":
-    folder = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Lesion_only + hair removed"
-    output_csv = "/Users/onealokutu/Documents/ITU/Projects in Data Science/ABCD/ABC CSVs/Haralick_analysis.csv"
+    folder = " " #path to hair removed + lesion only folder
+    output_csv = " " #output path 
     process_image_folder(folder, output_csv)
