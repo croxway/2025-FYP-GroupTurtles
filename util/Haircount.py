@@ -52,18 +52,18 @@ def process_dataset(images_dir, masks_dir, output_csv):
                 try:
                     hair_count = count_hairs_blackhat(image_path, mask_path)
                     results.append({"image": filename, "hair_count": hair_count})
-                    print(f"✅ Processed {filename} → Hairs: {hair_count}")
+                    print(f" Processed {filename} → Hairs: {hair_count}")
                 except Exception as e:
-                    print(f"❌ Error processing {filename}: {str(e)}")
+                    print(f" Error processing {filename}: {str(e)}")
             else:
-                print(f"⚠️ Mask not found for {filename}, skipping.")
+                print(f" Mask not found for {filename}, skipping.")
 
     if results:
         df = pd.DataFrame(results)
         df.to_csv(output_csv, index=False)
-        print(f"\n📁 Results saved to {output_csv}")
+        print(f"Results saved to {output_csv}")
     else:
-        print("⚠️ No valid images were processed.")
+        print(" No valid images were processed.")
 
 # 🔧 Set your actual paths here
 images_dir = ""
