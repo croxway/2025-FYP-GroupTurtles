@@ -1,62 +1,66 @@
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import (
-    confusion_matrix,
-    ConfusionMatrixDisplay,
-    classification_report,
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score
-)
-from sklearn.tree import plot_tree
 import matplotlib.pyplot as plt
 
-# Load your dataset
-df = pd.read_csv("")
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
+from sklearn.metrics import (
+    confusion_matrix, ConfusionMatrixDisplay, classification_report,
+    accuracy_score, precision_score, recall_score, f1_score,
+    roc_curve, auc, RocCurveDisplay, PrecisionRecallDisplay
+)
+from sklearn.tree import plot_tree
 
-# Drop the first column (e.g., patient name)
-df = df.iloc[:, 1:]
-
-# Define target column
+# Load dataset
+df = pd.read_csv('')
+df = df.iloc[:, 1:]  # Drop first column (e.g., ID or name)
 target_column = df.columns[-1]
+df = df.dropna(subset=[target_column])  # Remove missing targets
 
-# Drop rows with missing target values
-df = df.dropna(subset=[target_column])
-
-# Separate features and target
-X = df.drop(columns=[target_column])
+# Prepare features and target
+X = pd.get_dummies(df.drop(columns=[target_column]))
 y = df[target_column]
 
-# Convert categorical variables to numeric
-X = pd.get_dummies(X)
-
-# Train/test split
+# Split into training and test sets
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y)
 
-### ========== RANDOM FOREST ========== ###
-rf = RandomForestClassifier(
-    n_estimators=75,
-    max_depth=6,
-    min_samples_split=8,
-    min_samples_leaf=4,
-    max_features='sqrt',
-    random_state=42
+### ========== RANDOM FOREST + CROSS-VALIDATION ========== ###
+param_grid = {
+    'n_estimators': [50, 75, 100],
+    'max_depth': [4, 6, 8],
+    'min_samples_split': [4, 6, 8],
+    'min_samples_leaf': [1, 2, 4],
+    'max_features': ['sqrt', 'log2']
+}
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+rf = RandomForestClassifier(random_state=42)
+
+grid_search = GridSearchCV(
+    rf,
+    param_grid,
+    cv=cv,
+    scoring='accuracy',
+    n_jobs=-1,
+    verbose=1
 )
 
-rf.fit(X_train, y_train)
+grid_search.fit(X_train, y_train)
 
-# === Training Performance ===
-y_train_pred_rf = rf.predict(X_train)
+best_rf = grid_search.best_estimator_
+print("\nBest Random Forest Parameters:")
+print(grid_search.best_params_)
+print(f"Cross-validated best accuracy: {grid_search.best_score_:.4f}")
+
+# === Train Performance ===
+y_train_pred_rf = best_rf.predict(X_train)
 train_accuracy_rf = accuracy_score(y_train, y_train_pred_rf)
 print(f"\nRandom Forest - Training Accuracy: {train_accuracy_rf:.4f}")
 
 # === Test Performance ===
-y_test_pred_rf = rf.predict(X_test)
+y_test_pred_rf = best_rf.predict(X_test)
 accuracy_rf = accuracy_score(y_test, y_test_pred_rf)
 precision_rf = precision_score(y_test, y_test_pred_rf, average='weighted', zero_division=0)
 recall_rf = recall_score(y_test, y_test_pred_rf, average='weighted', zero_division=0)
@@ -69,36 +73,52 @@ print(f"Random Forest - Test F1 Score:  {f1_rf:.4f}")
 print("\nRandom Forest - Classification Report:\n")
 print(classification_report(y_test, y_test_pred_rf, zero_division=0))
 
-# Random Forest - Confusion Matrix
-cm_rf = confusion_matrix(y_test, y_test_pred_rf)
-disp_rf = ConfusionMatrixDisplay(confusion_matrix=cm_rf)
-disp_rf.plot(cmap='Blues')
+# === Confusion Matrix ===
+ConfusionMatrixDisplay.from_estimator(best_rf, X_test, y_test, cmap='Blues')
 plt.title("Random Forest - Confusion Matrix")
 plt.show()
 
-# Visualize one decision tree
-tree = rf.estimators_[0]
-plt.figure(figsize=(20, 10))
-plot_tree(
-    tree,
-    max_depth=5,
-    feature_names=X.columns,
-    class_names=[str(cls) for cls in np.unique(y)],
-    filled=True,
-    fontsize=8
-)
-plt.title("Random Forest - Sample Decision Tree (max_depth=5)")
+# === Feature Importance ===
+importances = best_rf.feature_importances_
+indices = np.argsort(importances)[::-1]
+features = X.columns[indices]
+
+plt.figure(figsize=(10, 6))
+plt.title("Feature Importances - Random Forest")
+plt.bar(range(10), importances[indices[:10]], align='center')
+plt.xticks(range(10), features[:10], rotation=45, ha='right')
+plt.tight_layout()
 plt.show()
 
+# === ROC Curve ===
+y_prob_rf = best_rf.predict_proba(X_test)[:, 1]
+fpr, tpr, _ = roc_curve(y_test, y_prob_rf)
+roc_auc = auc(fpr, tpr)
+
+plt.figure()
+RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name="Random Forest").plot()
+plt.title("Random Forest - ROC Curve")
+plt.show()
+
+# === Precision-Recall Curve ===
+PrecisionRecallDisplay.from_estimator(best_rf, X_test, y_test)
+plt.title("Random Forest - Precision-Recall Curve")
+plt.show()
+
+# === Decision Tree (depth=2) from the Forest ===
+plt.figure(figsize=(20, 10))
+plot_tree(best_rf.estimators_[0], 
+          feature_names=X.columns, 
+          class_names=[str(cls) for cls in np.unique(y)],
+          filled=True, max_depth=2, fontsize=10)
+plt.title("Decision Tree from Random Forest (Depth=2)")
+plt.show()
 
 ### ========== K-NEAREST NEIGHBORS ========== ###
 knn = KNeighborsClassifier(n_neighbors=5)
 knn.fit(X_train, y_train)
 
-# Test predictions
 y_test_pred_knn = knn.predict(X_test)
-
-# Metrics
 accuracy_knn = accuracy_score(y_test, y_test_pred_knn)
 precision_knn = precision_score(y_test, y_test_pred_knn, average='weighted', zero_division=0)
 recall_knn = recall_score(y_test, y_test_pred_knn, average='weighted', zero_division=0)
@@ -111,9 +131,7 @@ print(f"KNN - Test F1 Score:  {f1_knn:.4f}")
 print("\nKNN - Classification Report:\n")
 print(classification_report(y_test, y_test_pred_knn, zero_division=0))
 
-# KNN - Confusion Matrix
-cm_knn = confusion_matrix(y_test, y_test_pred_knn)
-disp_knn = ConfusionMatrixDisplay(confusion_matrix=cm_knn)
-disp_knn.plot(cmap='Oranges')
+# === Confusion Matrix for KNN ===
+ConfusionMatrixDisplay.from_estimator(knn, X_test, y_test, cmap='Oranges')
 plt.title("KNN - Confusion Matrix")
 plt.show()
