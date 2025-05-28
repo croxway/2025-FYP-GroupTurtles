@@ -7,7 +7,7 @@ from scipy.ndimage import rotate
 from math import floor, ceil
 from concurrent.futures import ThreadPoolExecutor
 
-# --- Your actual asymmetry functions below ---
+
 
 def cutmask(mask):
     col_sums = np.sum(mask, axis=0)
@@ -79,13 +79,13 @@ def get_asymm_results(mask):
     scores = rotation_asymmetry(mask)
     return min(scores), round(np.mean(scores), 4)
 
-# --- Processing each mask file ---
+
 
 def process_mask(file_name):
     try:
-        # Crop filename to base without _mask.png if present
+        
         if file_name.endswith('_mask.png'):
-            base_name = file_name[:-9]  # remove '_mask.png'
+            base_name = file_name[:-9] 
         else:
             base_name = file_name
         path = os.path.join(masks_dir, file_name)
@@ -105,7 +105,7 @@ def process_mask(file_name):
 masks_dir = " " #<- insert path to mask
 output_csv = " " #<- insert path to save csv
 
-# List all mask files in the directory (only PNGs)
+
 all_files = [f for f in os.listdir(masks_dir) if f.endswith('.png')]
 
 with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as executor:
@@ -114,4 +114,4 @@ with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as executor:
 results_df = pd.DataFrame(results)
 results_df.to_csv(output_csv, index=False)
 
-print(f"✅ Done. Results saved to {output_csv}")
+print(f" Done. Results saved to {output_csv}")
