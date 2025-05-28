@@ -37,19 +37,19 @@ def process_directory(directory_path, output_csv):
         full_path = os.path.join(directory_path, filename)
         score = process_mask(full_path)
         
-        # Remove '_mask.ext' from filename
+        
         base_name = re.sub(r'_mask\.(png|jpg|jpeg|tif|tiff)$', '', filename, flags=re.IGNORECASE)
         
         results.append([base_name, round(score, 4)])
         print(f"{filename:<30} | Circularity: {score:.4f}")
 
-    # Write to CSV
+    
     with open(output_csv, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["Filename", "Average_Circularity"])
         writer.writerows(results)
 
-    print(f"\n✅ Saved results to {output_csv}")
+    print(f"Saved results to {output_csv}")
 
 if __name__ == "__main__":
     directory = " " # path to mask 
