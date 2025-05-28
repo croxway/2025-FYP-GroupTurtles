@@ -1,133 +1,84 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import train_test_split, cross_validate, GridSearchCV
-from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    confusion_matrix, ConfusionMatrixDisplay
-)
-from sklearn import tree
 import matplotlib.pyplot as plt
 import seaborn as sns
+import warnings
+from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
 
-# Load the dataset
-df = pd.read_csv("/Users/onealokutu/Documents/ITU/Projects in Data Science/Final Project /2025-FYP-Turtles/Baseline_classification.csv")
-# Drop rows with missing label
+warnings.filterwarnings("ignore")
+
+
+df = pd.read_csv(" ")
 df = df.dropna(subset=['label'])
+if df.dtypes[0] == 'object':
+    df = df.drop(columns=[df.columns[0]])
+df = df.fillna(df.median(numeric_only=True))
 
-# Separate features and label
-x = df.drop(columns=['key', 'label'])
-y = df['label'].astype(int)
-
-# Scale features
-scaler = MinMaxScaler()
-x_scaled = scaler.fit_transform(x)
-
-# Split the dataset (still good for final test set and tree visualization)
-X_train, X_test, y_train, y_test = train_test_split(x_scaled, y, test_size=0.2, random_state=42, stratify=y)
+X = df.drop(columns=['label'])
+y = df['label']
 
 
-# --- Random Forest Classifier with Cross-Validation & Grid Search ---
-print("--- Random Forest Training & Evaluation ---")
-rf_param_grid = {
-    'n_estimators': [100, 200, 300], # Fewer options for faster example
-    'max_depth': [5, 10, 15],
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+
+
+rf_params = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [None, 20, 40],
     'min_samples_split': [2, 5],
-    'min_samples_leaf': [1, 3],
+    'min_samples_leaf': [1, 2],
     'class_weight': ['balanced']
 }
 
-rf_grid_search = GridSearchCV(
-    RandomForestClassifier(random_state=42),
-    rf_param_grid,
-    cv=5, # 5-fold cross-validation
-    scoring='f1', # Optimize for F1-score, given class_weight='balanced'
-    n_jobs=-1, # Use all available CPU cores
-    verbose=1
-)
-rf_grid_search.fit(X_train, y_train)
-
-best_rf = rf_grid_search.best_estimator_
-y_pred_rf = best_rf.predict(X_test)
-
-rf_metrics = {
-    'Accuracy': accuracy_score(y_test, y_pred_rf),
-    'Precision': precision_score(y_test, y_pred_rf),
-    'Recall': recall_score(y_test, y_pred_rf),
-    'F1 Score': f1_score(y_test, y_pred_rf)
+knn_params = {
+    'n_neighbors': [3, 5, 7],
+    'weights': ['uniform', 'distance'],
+    'p': [1, 2]
 }
 
-print(f"Best Random Forest Parameters: {rf_grid_search.best_params_}")
 
 
-# --- KNN Classifier with Cross-Validation & Basic Hyperparameter Tuning ---
-print("\n--- KNN Training & Evaluation ---")
-knn_param_grid = {
-    'n_neighbors': [3, 5, 7, 9],
-    'weights': ['uniform', 'distance'] # Add weights parameter
-}
+def tune_model(name, model, params):
+    print(f"\n🔍 Tuning {name}...")
+    search = RandomizedSearchCV(
+        model, params, n_iter=10, scoring='f1_weighted',
+        cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=42),
+        n_jobs=-1, verbose=1, random_state=42
+    )
+    search.fit(X_train_scaled, y_train)
+    return search.best_estimator_
 
-knn_grid_search = GridSearchCV(
-    KNeighborsClassifier(),
-    knn_param_grid,
-    cv=5,
-    scoring='f1',
-    n_jobs=-1,
-    verbose=1
-)
-knn_grid_search.fit(X_train, y_train)
-
-best_knn = knn_grid_search.best_estimator_
-y_pred_knn = best_knn.predict(X_test)
-
-knn_metrics = {
-    'Accuracy': accuracy_score(y_test, y_pred_knn),
-    'Precision': precision_score(y_test, y_pred_knn),
-    'Recall': recall_score(y_test, y_pred_knn),
-    'F1 Score': f1_score(y_test, y_pred_knn)
-}
-
-print(f"Best KNN Parameters: {knn_grid_search.best_params_}")
+rf_best = tune_model("Random Forest", RandomForestClassifier(random_state=42), rf_params)
+knn_best = tune_model("K-Nearest Neighbors", KNeighborsClassifier(), knn_params)
 
 
-# --- Decision Tree (depth=2) ---
-clf_tree = tree.DecisionTreeClassifier(max_depth=2, random_state=42)
-clf_tree.fit(X_train, y_train)
+def evaluate_model(name, model, X_test, y_test):
+    print(f"\n📊 Evaluation for {name}")
+    y_pred = model.predict(X_test)
 
-# --- Plotting Confusion Matrices ---
-fig, axs = plt.subplots(1, 2, figsize=(12, 5))
+    print("Classification Report:")
+    print(classification_report(y_test, y_pred))
 
-# Random Forest confusion matrix
-ConfusionMatrixDisplay(confusion_matrix(y_test, y_pred_rf)).plot(ax=axs[0], cmap='Blues')
-axs[0].set_title("Random Forest Confusion Matrix")
+    print("Scores:")
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+    print("Precision:", precision_score(y_test, y_pred, average='weighted'))
+    print("Recall:", recall_score(y_test, y_pred, average='weighted'))
+    print("F1 Score:", f1_score(y_test, y_pred, average='weighted'))
 
-# KNN confusion matrix
-ConfusionMatrixDisplay(confusion_matrix(y_test, y_pred_knn)).plot(ax=axs[1], cmap='Oranges')
-axs[1].set_title("KNN Confusion Matrix")
+    cm = confusion_matrix(y_test, y_pred)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.title(f"{name} - Confusion Matrix")
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.show()
 
-plt.tight_layout()
-plt.show()
 
-# --- Separate Plot: Decision Tree ---
-plt.figure(figsize=(14, 8))
-tree.plot_tree(
-    clf_tree,
-    max_depth=2,
-    feature_names=x.columns,
-    class_names=['0', '1'],
-    filled=True,
-    rounded=True
-)
-plt.title("Decision Tree (depth=2)")
-plt.show()
-
-# --- Print Performance Metrics ---
-print("\n=== Random Forest Metrics (on test set) ===")
-for k, v in rf_metrics.items():
-    print(f"{k}: {v:.2f}")
-
-print("\n=== KNN Metrics (on test set) ===")
-for k, v in knn_metrics.items():
-    print(f"{k}: {v:.2f}")
+evaluate_model("Random Forest", rf_best, X_test_scaled, y_test)
+evaluate_model("K-Nearest Neighbors", knn_best, X_test_scaled, y_test)
