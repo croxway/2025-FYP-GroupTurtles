@@ -73,12 +73,12 @@ print(f"Random Forest - Test F1 Score:  {f1_rf:.4f}")
 print("\nRandom Forest - Classification Report:\n")
 print(classification_report(y_test, y_test_pred_rf, zero_division=0))
 
-# === Confusion Matrix ===
+
 ConfusionMatrixDisplay.from_estimator(best_rf, X_test, y_test, cmap='Blues')
 plt.title("Random Forest - Confusion Matrix")
 plt.show()
 
-# === Feature Importance ===
+
 importances = best_rf.feature_importances_
 indices = np.argsort(importances)[::-1]
 features = X.columns[indices]
@@ -90,7 +90,7 @@ plt.xticks(range(10), features[:10], rotation=45, ha='right')
 plt.tight_layout()
 plt.show()
 
-# === ROC Curve (class 0 as positive) ===
+
 y_prob_rf = best_rf.predict_proba(X_test)[:, 0]  
 fpr, tpr, _ = roc_curve(y_test, y_prob_rf, pos_label=0)
 roc_auc = auc(fpr, tpr)
@@ -108,7 +108,7 @@ PrecisionRecallDisplay(precision=precision, recall=recall, estimator_name="Rando
 plt.title("Random Forest - Precision-Recall Curve (Class 0 as Positive)")
 plt.show()
 
-# === Decision Tree (depth=2) from the Forest ===
+
 plt.figure(figsize=(20, 10))
 plot_tree(best_rf.estimators_[0], 
           feature_names=X.columns, 
@@ -117,7 +117,7 @@ plot_tree(best_rf.estimators_[0],
 plt.title("Decision Tree from Random Forest (Depth=2)")
 plt.show()
 
-### ========== K-NEAREST NEIGHBORS ========== ###
+
 knn = KNeighborsClassifier(n_neighbors=5)
 knn.fit(X_train, y_train)
 
@@ -134,7 +134,7 @@ print(f"KNN - Test F1 Score:  {f1_knn:.4f}")
 print("\nKNN - Classification Report:\n")
 print(classification_report(y_test, y_test_pred_knn, zero_division=0))
 
-# === Confusion Matrix for KNN ===
+
 ConfusionMatrixDisplay.from_estimator(knn, X_test, y_test, cmap='Oranges')
 plt.title("KNN - Confusion Matrix")
 plt.show()
