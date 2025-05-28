@@ -8,17 +8,17 @@ from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKF
 from sklearn.metrics import (
     confusion_matrix, ConfusionMatrixDisplay, classification_report,
     accuracy_score, precision_score, recall_score, f1_score,
-    roc_curve, auc, RocCurveDisplay, PrecisionRecallDisplay
+    roc_curve, auc, RocCurveDisplay, precision_recall_curve, PrecisionRecallDisplay
 )
 from sklearn.tree import plot_tree
 
-# Load dataset
-df = pd.read_csv('')
-df = df.iloc[:, 1:]  # Drop first column (e.g., ID or name)
-target_column = df.columns[-1]
-df = df.dropna(subset=[target_column])  # Remove missing targets
 
-# Prepare features and target
+df = pd.read_csv('')
+df = df.iloc[:, 1:]  
+target_column = df.columns[-1]
+df = df.dropna(subset=[target_column])  
+
+
 X = pd.get_dummies(df.drop(columns=[target_column]))
 y = df[target_column]
 
@@ -26,7 +26,7 @@ y = df[target_column]
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y)
 
-### ========== RANDOM FOREST + CROSS-VALIDATION ========== ###
+
 param_grid = {
     'n_estimators': [50, 75, 100],
     'max_depth': [4, 6, 8],
@@ -90,19 +90,22 @@ plt.xticks(range(10), features[:10], rotation=45, ha='right')
 plt.tight_layout()
 plt.show()
 
-# === ROC Curve ===
-y_prob_rf = best_rf.predict_proba(X_test)[:, 1]
-fpr, tpr, _ = roc_curve(y_test, y_prob_rf)
+# === ROC Curve (class 0 as positive) ===
+y_prob_rf = best_rf.predict_proba(X_test)[:, 0]  
+fpr, tpr, _ = roc_curve(y_test, y_prob_rf, pos_label=0)
 roc_auc = auc(fpr, tpr)
 
 plt.figure()
 RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name="Random Forest").plot()
-plt.title("Random Forest - ROC Curve")
+plt.title("Random Forest - ROC Curve (Class 0 as Positive)")
 plt.show()
 
-# === Precision-Recall Curve ===
-PrecisionRecallDisplay.from_estimator(best_rf, X_test, y_test)
-plt.title("Random Forest - Precision-Recall Curve")
+
+precision, recall, _ = precision_recall_curve(y_test, y_prob_rf, pos_label=0)
+
+plt.figure()
+PrecisionRecallDisplay(precision=precision, recall=recall, estimator_name="Random Forest").plot()
+plt.title("Random Forest - Precision-Recall Curve (Class 0 as Positive)")
 plt.show()
 
 # === Decision Tree (depth=2) from the Forest ===
