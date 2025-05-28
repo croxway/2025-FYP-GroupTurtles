@@ -9,11 +9,11 @@ from joblib import Parallel, delayed
 from sklearn.cluster import MiniBatchKMeans
 import csv
 
-# === File paths ===
+
 repo_dir = os.path.dirname(os.path.abspath(__file__))
 util_dir = os.path.join(repo_dir, "util")
 
-# === CSV output paths ===
+
 csv_paths = {
     "asymmetry": "" ,
     "border": " ",
@@ -26,11 +26,11 @@ output_baseline_csv = os.path.join(repo_dir, "baseline_features_extended.csv")
 output_classification_csv = os.path.join(repo_dir, "Baseline_classification_extended.csv")
 metadata_path = " "
 
-# === Lesion image folder ===
-lesion_image_folder = "/Users/onealokutu/Documents/ITU/Projects in Data Science/Lesion+hair removed"
+
+lesion_image_folder = " " # path to lesion only+ hair removed
 lesion_images = sorted(glob(os.path.join(lesion_image_folder, "*.png")))
 
-# === Process individual image for color features ===
+
 def process_lesion_only_image(image_path):
     base_name = os.path.splitext(os.path.basename(image_path))[0]
     base_name = re.sub(r'_lesions?$', '', base_name, flags=re.IGNORECASE)
@@ -42,7 +42,7 @@ def process_lesion_only_image(image_path):
     reshaped = image_rgb.reshape((-1, 3))
     non_black_pixels = reshaped[np.any(reshaped != [0, 0, 0], axis=1)]
     if len(non_black_pixels) < 5:
-        return None  # Skip images with insufficient non-black pixels
+        return None  
 
     mean_color = np.mean(non_black_pixels)
     median_color = np.median(non_black_pixels)
@@ -103,7 +103,7 @@ def process_lesion_only_image(image_path):
             round(entropy, 3), round(highly_sat_ratio, 3),
             round(border_contrast, 2)] + color_presence + [color_sum]
 
-# === Color feature extraction ===
+
 def run_color_extraction():
     print("🎨 Extracting color features...")
     header = [
@@ -122,23 +122,23 @@ def run_color_extraction():
         writer.writerow(header)
         writer.writerows(valid_results)
 
-    print(f"✅ Color features saved to: {csv_paths['color']}")
+    print(f"Color features saved to: {csv_paths['color']}")
 
-# === Generic feature runner ===
+
 def run_feature(script):
     print(f"▶️ Running {script}")
     result = subprocess.run(["python", script], cwd=util_dir, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"❌ {script} failed:\n{result.stderr}")
     else:
-        print(f"✅ {script} done.")
+        print(f"{script} done.")
 
-# === Clean file keys ===
+
 def clean_name(name):
     name = os.path.splitext(name)[0]
     return re.sub(r'_(mask|lesion[s]?|nohair)$', '', name, flags=re.IGNORECASE)
 
-# === Merge all feature CSVs ===
+
 def merge_feature_csvs(csv_dict):
     dfs = []
     for name, path in csv_dict.items():
@@ -152,7 +152,7 @@ def merge_feature_csvs(csv_dict):
         merged_df = merged_df.merge(df, on='key', how='inner')
     return merged_df
 
-# === Add diagnostic labels from metadata ===
+
 def add_labels_to_baseline(baseline_df):
     metadata_df = pd.read_csv(metadata_path)
     metadata_df['img_id'] = metadata_df['img_id'].str.replace(".png", "", regex=False)
@@ -166,7 +166,7 @@ def add_labels_to_baseline(baseline_df):
     merged.drop(columns=['img_id'], inplace=True)
     return merged
 
-# === MAIN SCRIPT ===
+
 if __name__ == "__main__":
     print("=" * 60)
     print("STEP 1: RUNNING FEATURE EXTRACTION SCRIPTS")
@@ -180,9 +180,9 @@ if __name__ == "__main__":
     print("\nSTEP 2: MERGING FEATURES")
     merged_features = merge_feature_csvs(csv_paths)
     merged_features.to_csv(output_baseline_csv, index=False)
-    print(f"✅ Saved: {output_baseline_csv}")
+    print(f"Saved: {output_baseline_csv}")
 
     print("\nSTEP 3: ADDING LABELS")
     final_df = add_labels_to_baseline(merged_features)
     final_df.to_csv(output_classification_csv, index=False)
-    print(f"✅ Final classification CSV saved: {output_classification_csv}")
+    print(f"Final classification CSV saved: {output_classification_csv}")
