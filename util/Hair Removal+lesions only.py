@@ -30,18 +30,18 @@ def extract_cropped_lesions(image_folder, mask_folder, output_folder):
             mask_path  = os.path.join(mask_folder, mask_filename)
 
             if not os.path.exists(mask_path):
-                print(f"⚠️ No mask found for {image_filename}, skipping.")
+                print(f" No mask found for {image_filename}, skipping.")
                 continue
 
             image = cv2.imread(image_path)
             mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
 
             if image is None or mask is None:
-                print(f"❌ Could not read {image_filename} or its mask. Skipping.")
+                print(f" Could not read {image_filename} or its mask. Skipping.")
                 continue
 
             if mask.shape != image.shape[:2]:
-                print(f"⚠️ Size mismatch for {image_filename}, resizing mask.")
+                print(f" Size mismatch for {image_filename}, resizing mask.")
                 mask = cv2.resize(mask, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST)
 
             if mask.dtype != np.uint8:
@@ -56,7 +56,7 @@ def extract_cropped_lesions(image_folder, mask_folder, output_folder):
             # Find bounding box
             ys, xs = np.where(mask > 0)
             if ys.size == 0 or xs.size == 0:
-                print(f"⚠️ Mask is empty for {image_filename}, skipping.")
+                print(f"Mask is empty for {image_filename}, skipping.")
                 continue
 
             x_min, x_max = np.min(xs), np.max(xs)
@@ -66,10 +66,10 @@ def extract_cropped_lesions(image_folder, mask_folder, output_folder):
 
             save_path = os.path.join(output_folder, f"{base_name}_lesion.png")
             cv2.imwrite(save_path, cropped_lesion)
-            print(f"✅ Saved: {save_path}")
+            print(f"Saved: {save_path}")
 
         except Exception as e:
-            print(f"❌ Error processing {image_filename}: {str(e)}. Skipping.")
+            print(f"Error processing {image_filename}: {str(e)}. Skipping.")
 
 # Example usage:
 extract_cropped_lesions(
