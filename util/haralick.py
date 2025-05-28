@@ -10,7 +10,7 @@ from skimage.util import img_as_ubyte
 from skimage import img_as_float
 from skimage.morphology import binary_closing, remove_small_objects, disk
 
-# === HARALICK HELPERS ===
+
 def compute_entropy(glcm):
     glcm = np.where(glcm > 0, glcm, 1e-10)
     return -np.sum(glcm * np.log2(glcm))
@@ -23,7 +23,7 @@ def compute_dissimilarity(glcm):
 def compute_asm(glcm):
     return np.sum(glcm ** 2)
 
-# === TEXTURE FEATURE EXTRACTION ===
+
 def extract_texture_features(image, mask):
     gray = rgb2gray(image)
     gray = img_as_ubyte(gray)
@@ -54,7 +54,7 @@ def extract_texture_features(image, mask):
     features["Haralick_ASM"] = np.mean(asm_vals)
     return features
 
-# === BWV DETECTOR ===
+
 class BlueWhiteVeilDetector:
     def __init__(self):
         self.lab_thresholds = {
@@ -98,7 +98,7 @@ class BlueWhiteVeilDetector:
             'bwv_pct_lesion': (bwv_area / lesion_area * 100) if lesion_area > 0 else 0
         }
 
-# === BATCH PROCESSING & CSV EXPORT ===
+
 def clean_name_for_key(filename):
     base = os.path.splitext(filename)[0]
     return re.sub(r'(_lesions?|_mask)$', '', base, flags=re.IGNORECASE)
@@ -107,7 +107,7 @@ def process_image_folder(folder_path, output_csv):
     detector = BlueWhiteVeilDetector()
     image_files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
     if not image_files:
-        print("⚠️ No images found in the folder.")
+        print(" No images found in the folder.")
         return
 
     all_results = []
@@ -126,12 +126,11 @@ def process_image_folder(folder_path, output_csv):
             base_name = clean_name_for_key(fname)
             row = {'key': base_name, **features, **stats}
             all_results.append(row)
-            print(f"✅ Processed {fname}")
+            print(f" Processed {fname}")
         except Exception as e:
-            print(f"❌ Failed to process {fname}: {e}")
+            print(f" Failed to process {fname}: {e}")
 
     if all_results:
-        # Define consistent column order
         fieldnames = ['key',
                       'Haralick_Contrast', 'Haralick_Correlation', 'Haralick_Energy', 'Haralick_Homogeneity',
                       'Haralick_Entropy', 'Haralick_Dissimilarity', 'Haralick_ASM',
@@ -144,7 +143,7 @@ def process_image_folder(folder_path, output_csv):
                 writer.writerow({key: row.get(key, None) for key in fieldnames})
         print(f"\n📁 Results saved to: {output_csv}")
 
-# === RUN SCRIPT ===
+
 if __name__ == "__main__":
     folder = " " #path to hair removed + lesion only folder
     output_csv = " " #output path 
