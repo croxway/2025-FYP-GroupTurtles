@@ -3,7 +3,8 @@
 # 1. Exploration of the Data/ Summary of the Data:
 
 Dataset Overview
-The dataset consists of 200 images of skin moulds.
+The dataset consists of 200 images of skin moulds that as used by GroupH in the mandatory project at the start of the semester.
+
 Each image has been annotated with a hair presence rating:
 
 0 = No hair
@@ -13,8 +14,8 @@ Each image has been annotated with a hair presence rating:
 2 = A lot of hair
 
 The primary goal is to develop an algorithm to remove hair from images, enabling better differentiation between cancerous and non-cancerous moulds.
- #  Summary Statistics:
 
+ #  Summary Statistics:
 The group uniformly agreed on the hair annotation for 119 pictures (59.5%), with an average agreement of 89.0%. The lowest agreement was 20% for the picture img_0925.png.
 
 # Image Quality & Variability:
