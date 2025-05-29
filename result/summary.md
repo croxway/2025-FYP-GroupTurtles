@@ -108,5 +108,5 @@ For checking different effects of the parameters, we chose the picture img_0918 
 | - Small fill area, keeping smaller details. <br> - May leave tiny spots where hair was removed. | - A good balance; fills the area while keeping details. | - Bigger fill area for smoother results. <br> - Might lose some fine lesion details. |
 
 
-*Conclusion
+ #   **Conclusion: 
 This project gave us valuable insights into the challenges of hair removal in medical imaging. We found that image variability—such as hair color, skin tone, and lighting—can significantly affect the performance of our algorithm. While adjusting parameters like kernel size, threshold, and radius helped improve results in some cases, it also highlighted the limitations of a one-size-fits-all approach. Going forward, a more adaptive or learning-based method may be necessary to consistently preserve lesion details while effectively removing hair. These findings will help guide our approach in the final assignment, where the goal will be to build a more robust and generalizable solution.
