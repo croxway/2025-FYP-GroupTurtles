@@ -1,1 +1,41 @@
+###  Required Python Modules
 
+Below are the essential modules imported to ensure the smooth running of all our Python files:
+
+`numpy`, `pandas`, `cv2`, `matplotlib.pyplot`, `sklearn`, `os`, `glob`, `random`, `time`, `warnings`, `joblib`, `seaborn`, `scipy`, `skimage`, `tensorflow`, `torch`
+
+Make sure these modules are installed in your Python environment. You can install them using:
+
+```bash
+pip install -r requirements.txt
+
+# Instructions on Running
+# Baseline
+Run feature scripts A, B, and C.
+
+Each script generates its own .csv file.
+
+These .csv files are then merged with the metadata.csv file.
+
+The merged file is used for classification.
+
+Important: Ensure that the file paths to each .csv are correctly set.
+
+# Extended Baseline
+Additional features implemented include:
+
+Haralick texture
+
+Blue-White Veil
+
+Hair Count
+
+Hair removal (via Hair removal + lesion only.py)
+
+A new function was added for the Colour feature to avoid creating multiple color-related files.
+
+Each feature outputs its own .csv, as in the baseline.
+
+These files are merged with the diagnoses column from the metadata.
+
+This results in a complete dataset ready for training and classification.
